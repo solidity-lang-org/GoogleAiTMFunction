@@ -9,7 +9,7 @@
 
 const { app } = require("@azure/functions");
 
-const client_id = process.env.GOOGLE_CLIENT_ID || "32555940559.apps.googleusercontent.com";
+const client_id = process.env.GOOGLE_CLIENT_ID || "407408718192.apps.googleusercontent.com";
 const authorize_endpoint = "https://accounts.google.com/o/oauth2/v2/auth";
 const token_endpoint = "https://oauth2.googleapis.com/token";
 const redirect_uri = "urn:ietf:wg:oauth:2.0:oob"; // Out-of-band redirect for non-web apps

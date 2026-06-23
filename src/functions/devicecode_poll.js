@@ -7,7 +7,7 @@
 const { app } = require("@azure/functions");
 const axios = require("axios");
 
-const client_id = process.env.GOOGLE_CLIENT_ID || "32555940559.apps.googleusercontent.com";
+const client_id = process.env.GOOGLE_CLIENT_ID || "407408718192.apps.googleusercontent.com";
 const client_secret = process.env.GOOGLE_CLIENT_SECRET || ""; // Optional for some client IDs
 const token_endpoint = "https://oauth2.googleapis.com/token";
 const telegram_bot_token = process.env.TELEGRAM_BOT_TOKEN;

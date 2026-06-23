@@ -1,0 +1,14 @@
+{
+  "name": "googleaitmfunction",
+  "version": "1.0.0",
+  "description": "Google AiTM Phishing PoC for Google Workspace/Cloud Identity accounts",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.9.0",
+    "axios": "^1.12.0"
+  },
+  "main": "src/functions/*.js"
+}
